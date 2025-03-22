@@ -541,9 +541,7 @@ export default function StartupDetails() {
                       <FileText className="h-12 w-12 text-slate-500 mx-auto mb-3 opacity-50" />
                       <p className="text-slate-400">No documents have been uploaded yet.</p>
                       {isOwner && (
-                        <p className="text-sm mt-2 text-slate-500">
-                          Upload business plans and other documents to provide more information to potential investors.
-                        </p>
+                        <p className="text-sm mt-2 text-slate-500">Upload business plans and other documents to provide more information to potential investors.</p>
                       )}
                     </div>
                   )}
