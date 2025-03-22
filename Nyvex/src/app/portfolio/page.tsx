@@ -48,32 +48,84 @@ export default function Portfolio() {
         setIsLoading(true);
        
         try {
-          // Fetch investment tokens and campaigns in parallel
-          const [tokens, campaigns] = await Promise.all([
-            getInvestorTokens(),
-            getCampaigns()
-          ]);
-         
+          // Fetch investment tokens and campaigns with separate error handling
+          let tokens = [];
+          let campaigns = [];
+          
+          try {
+            tokens = await getInvestorTokens();
+            console.log("Successfully fetched tokens:", tokens);
+          } catch (tokenError) {
+            console.error("Error fetching investment tokens:", tokenError);
+            tokens = []; // Fallback to empty array
+          }
+          
+          try {
+            campaigns = await getCampaigns();
+          } catch (campaignError) {
+            console.error("Error fetching campaigns:", campaignError);
+            campaigns = []; // Fallback to empty array
+          }
+          
           // Only update state if component is still mounted
           setInvestmentTokens(tokens);
           setStartups(campaigns);
-         
+          
           // Calculate portfolio statistics
           if (tokens.length > 0) {
-            const totalInvested = tokens.reduce((sum, token) => sum + parseFloat(token.investmentAmount), 0);
-            const totalEquity = tokens.reduce((sum, token) => sum + parseFloat(token.equity), 0);
-            const avgEquity = totalEquity / tokens.length;
-            const earliestInvestment = new Date(Math.min(...tokens.map(t => t.investmentDate.getTime())));
-           
-            setPortfolioStats({
-              totalInvested,
-              totalStartups: new Set(tokens.map(t => t.startupId)).size,
-              avgEquity,
-              totalEquity,
-              earliestInvestment,
-            });
+            try {
+              const totalInvested = tokens.reduce((sum, token) => {
+                try {
+                  let amount = parseFloat(token.investmentAmount);
+                  
+                  // If amount is unreasonably large, it might be in wei
+                  if (amount > 1000000) {
+                    amount = amount / 10**18;
+                  }
+                  
+                  return sum + (isNaN(amount) ? 0 : amount);
+                } catch (error) {
+                  console.warn(`Error adding investment amount: ${error}`);
+                  return sum;
+                }
+              }, 0);
+              
+              const totalEquity = tokens.reduce((sum, token) => {
+                const equity = parseFloat(token.equity) || 0;
+                return sum + equity;
+              }, 0);
+              
+              const avgEquity = totalEquity / tokens.length;
+              
+              // Filter out invalid dates before finding minimum
+              const validDates = tokens
+                .map(t => t.investmentDate instanceof Date ? t.investmentDate.getTime() : null)
+                .filter(date => date !== null);
+                
+              const earliestInvestment = validDates.length > 0 
+                ? new Date(Math.min(...validDates))
+                : new Date();
+              
+              setPortfolioStats({
+                totalInvested,
+                totalStartups: new Set(tokens.map(t => t.startupId)).size,
+                avgEquity,
+                totalEquity,
+                earliestInvestment,
+              });
+            } catch (statsError) {
+              console.error("Error calculating portfolio statistics:", statsError);
+              // Set default stats if calculation fails
+              setPortfolioStats({
+                totalInvested: 0,
+                totalStartups: 0,
+                avgEquity: 0,
+                totalEquity: 0,
+                earliestInvestment: new Date(),
+              });
+            }
           }
-         
+          
           // Mark data as fetched to prevent re-fetching
           dataFetchedRef.current = true;
         } catch (error) {
@@ -83,6 +135,8 @@ export default function Portfolio() {
           fetchingInProgressRef.current = false;
         }
       };
+      
+      
 
       fetchData();
     } else if (!address) {

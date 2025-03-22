@@ -461,18 +461,18 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   // Get investor tokens (NFT certificates)
   const getInvestorTokens = async (investorAddress?: string): Promise<any[]> => {
     if (!contract) return [];
-    
+  
     try {
       setIsLoading(true);
-      
+  
       // Use provided address or connected wallet address
       const owner = investorAddress || address;
-      
+  
       // Get all startups
       const startups = await getCampaigns();
-      
+  
       let allTokens: any[] = [];
-      
+  
       // For each startup, get the investor's tokens
       for (let i = 0; i < startups.length; i++) {
         try {
@@ -481,50 +481,203 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
             method: "function getInvestorTokens(address _investor, uint256 _startupId) view returns (uint256[])",
             params: [owner, BigInt(i)],
           });
-          
+  
           const tokens = preparedCall;
-          
+  
           // For each token, get its details
           for (let j = 0; j < tokens.length; j++) {
-            const tokenId = tokens[j];
-            
-            // Get token URI
-            const tokenURI = await readContract({
-              contract,
-              method: "function tokenURI(uint256 tokenId) view returns (string)",
-              params: [tokenId],
-            });
-            
-            // Parse the base64 encoded JSON
-            const jsonBase64 = tokenURI.split(',')[1];
-            const jsonString = atob(jsonBase64);
-            const metadata = JSON.parse(jsonString);
-            
-            // Get investment amount from metadata
-            const amountAttribute = metadata.attributes.find((attr: any) => attr.trait_type === "Investment Amount");
-            const equityAttribute = metadata.attributes.find((attr: any) => attr.trait_type === "Equity Percentage");
-            const dateAttribute = metadata.attributes.find((attr: any) => attr.trait_type === "Investment Date");
-            
-            const investmentAmount = amountAttribute ? amountAttribute.value.split(' ')[0] : "0";
-            const equity = equityAttribute ? equityAttribute.value.replace('%', '') : "0";
-            const investmentDate = dateAttribute ? new Date(parseInt(dateAttribute.value) * 1000) : new Date();
-            
-            allTokens.push({
-              tokenId: tokenId.toString(),
-              startupId: i,
-              startupName: startups[i].title,
-              investmentAmount,
-              investmentDate,
-              equity,
-              ownerAddress: owner,
-              metadata
-            });
+            try {
+              const tokenId = tokens[j];
+              
+              // Get token URI
+              const tokenURI = await readContract({
+                contract,
+                method: "function tokenURI(uint256 tokenId) view returns (string)",
+                params: [tokenId],
+              });
+              
+              // Handle different URI formats
+              let jsonString;
+              let metadata;
+              
+              try {
+                // Check if it's a data URI with base64
+                if (tokenURI.startsWith('data:application/json;base64,')) {
+                  const base64Data = tokenURI.replace('data:application/json;base64,', '');
+                  jsonString = atob(base64Data);
+                } 
+                // Check if it's an IPFS URI
+                else if (tokenURI.startsWith('ipfs://')) {
+                  const ipfsHash = tokenURI.replace('ipfs://', '');
+                  const response = await fetch(`https://ipfs.io/ipfs/${ipfsHash}`);
+                  jsonString = await response.text();
+                }
+                // Check if it's a direct JSON string
+                else if (tokenURI.startsWith('{')) {
+                  jsonString = tokenURI;
+                }
+                // Check if it's a HTTP/HTTPS URL
+                else if (tokenURI.startsWith('http')) {
+                  const response = await fetch(tokenURI);
+                  jsonString = await response.text();
+                }
+                // If none of the above, try to parse it directly
+                else {
+                  console.warn(`Unrecognized token URI format for token ${tokenId}: ${tokenURI}`);
+                  jsonString = tokenURI;
+                }
+                
+                // Parse the JSON
+                try {
+                  metadata = JSON.parse(jsonString);
+                } catch (parseError) {
+                  console.warn(`Failed to parse JSON for token ${tokenId}: ${parseError}`);
+                  
+                  // Try to extract JSON from the string if it contains a JSON object
+                  const jsonMatch = jsonString.match(/{.*}/s);
+                  if (jsonMatch) {
+                    try {
+                      metadata = JSON.parse(jsonMatch[0]);
+                    } catch (extractError) {
+                      console.error(`Failed to extract JSON from string: ${extractError}`);
+                      continue;
+                    }
+                  } else {
+                    continue;
+                  }
+                }
+              } catch (uriError) {
+                console.error(`Error processing URI for token ${tokenId}: ${uriError}`);
+                
+                // Try to get raw token data from contract if URI processing fails
+                try {
+                  // Get investment amount directly from contract
+                  const investmentAmount = await readContract({
+                    contract,
+                    method: "function getInvestmentAmount(address _investor, uint256 _startupId) view returns (uint256)",
+                    params: [owner, BigInt(i)],
+                  });
+                  
+                  // Create minimal metadata
+                  metadata = {
+                    name: `Investment in ${startups[i].title}`,
+                    description: `Investment certificate for ${startups[i].title}`,
+                    attributes: [
+                      { trait_type: "Investment Amount", value: `${investmentAmount.toString()} AVAX` },
+                      { trait_type: "Investment Date", value: Math.floor(Date.now() / 1000).toString() }
+                    ]
+                  };
+                } catch (fallbackError) {
+                  console.error(`Failed to get fallback data: ${fallbackError}`);
+                  continue;
+                }
+              }
+              
+              if (!metadata || !metadata.attributes) {
+                console.warn(`Missing metadata attributes for token ${tokenId}`);
+                continue;
+              }
+              
+              // Extract attributes with fallbacks
+              const amountAttribute = metadata.attributes.find((attr: any) => attr.trait_type === "Investment Amount");
+              const equityAttribute = metadata.attributes.find((attr: any) => attr.trait_type === "Equity Percentage");
+              const dateAttribute = metadata.attributes.find((attr: any) => attr.trait_type === "Investment Date");
+              
+              // Parse values with fallbacks
+              // Inside getInvestorTokens function, replace the investment amount parsing section with this:
+
+// Parse values with fallbacks
+let investmentAmount = "0";
+if (amountAttribute) {
+  try {
+    const amountValue = amountAttribute.value.toString();
+    
+    // Extract just the numeric part before "AVAX"
+    if (amountValue.includes(' AVAX')) {
+      investmentAmount = amountValue.split(' AVAX')[0].trim();
+    } else if (amountValue.includes(' ')) {
+      investmentAmount = amountValue.split(' ')[0].trim();
+    } else {
+      // If it's just a number without units
+      investmentAmount = amountValue;
+    }
+    
+    // Check if it's a BigInt or very large number
+    const numValue = parseFloat(investmentAmount);
+    
+    // Log for debugging
+    console.log(`Token ${tokenId} raw amount: ${amountValue}, parsed: ${numValue}`);
+    
+    if (isNaN(numValue)) {
+      console.warn(`Invalid investment amount: ${amountValue}`);
+      investmentAmount = "0";
+    } else if (numValue > 1000000) {
+      // If unreasonably large, it might be in wei - convert to AVAX
+      const valueInAVAX = numValue / 10**18;
+      console.log(`Converting large amount ${numValue} to AVAX: ${valueInAVAX}`);
+      investmentAmount = valueInAVAX.toString();
+    }
+  } catch (error) {
+    console.error(`Error parsing investment amount: ${error}`);
+    investmentAmount = "0";
+  }
+}
+
+// Similarly, update equity parsing if needed
+let equity = "0";
+if (equityAttribute) {
+  try {
+    const equityValue = equityAttribute.value.toString();
+    equity = equityValue.includes('%') ? equityValue.replace('%', '') : equityValue;
+    
+    // Validate equity is a reasonable number
+    const numEquity = parseFloat(equity);
+    if (isNaN(numEquity)) {
+      console.warn(`Invalid equity percentage: ${equityValue}`);
+      equity = "0";
+    } else if (numEquity > 100) {
+      // If equity is unreasonably large, it might be in basis points (1% = 100 bp)
+      console.log(`Converting large equity ${numEquity} to percentage: ${numEquity/100}`);
+      equity = (numEquity / 100).toString();
+    }
+  } catch (error) {
+    console.error(`Error parsing equity: ${error}`);
+    equity = "0";
+  }
+}
+
+              
+              let investmentDate = new Date();
+              if (dateAttribute) {
+                try {
+                  const timestamp = parseInt(dateAttribute.value);
+                  if (!isNaN(timestamp)) {
+                    investmentDate = new Date(timestamp * 1000);
+                  }
+                } catch (dateError) {
+                  console.warn(`Invalid date format: ${dateAttribute.value}`);
+                }
+              }
+              
+              allTokens.push({
+                tokenId: tokenId.toString(),
+                startupId: i,
+                startupName: startups[i].title,
+                investmentAmount,
+                investmentDate,
+                equity,
+                ownerAddress: owner,
+                metadata
+              });
+            } catch (tokenError) {
+              console.error(`Error processing token ${tokens[j]} for startup ${i}:`, tokenError);
+            }
           }
-        } catch (error) {
-          console.error(`Error getting tokens for startup ${i}:`, error);
+        } catch (startupError) {
+          console.error(`Error getting tokens for startup ${i}:`, startupError);
         }
       }
-      
+  
       return allTokens;
     } catch (error) {
       console.error("Error getting investor tokens:", error);
@@ -533,6 +686,8 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false);
     }
   };
+  
+  
 
   // Create milestone for a startup
   const createMilestone = async (

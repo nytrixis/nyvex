@@ -13,6 +13,24 @@ interface NFTCardProps {
 }
 
 export default function NFTCard({ certificate, onClick }: NFTCardProps) {
+  // Add this function to format the investment amount
+  const formatInvestmentAmount = (amount: string): string => {
+    try {
+      let numAmount = parseFloat(amount);
+      
+      // If amount is unreasonably large, it might be in wei
+      if (numAmount > 1000000) {
+        numAmount = numAmount / 10**18;
+      }
+      
+      // Format to 2 decimal places
+      return numAmount.toFixed(2);
+    } catch (error) {
+      console.warn(`Error formatting investment amount: ${error}`);
+      return "0.00";
+    }
+  };
+
   return (
     <Card className="border border-slate-700 hover:border-[#00E6E6]/50 transition-colors duration-300 bg-slate-800/30 backdrop-blur-sm overflow-hidden h-full flex flex-col group">
       <div className="relative overflow-hidden">
@@ -45,7 +63,7 @@ export default function NFTCard({ certificate, onClick }: NFTCardProps) {
           </div>
         )}
       </div>
-      
+     
       <CardContent className="flex-grow pt-5">
         <h3 className="text-lg font-bold text-white mb-3 group-hover:text-[#00E6E6] transition-colors">
           {certificate.startupName}
@@ -54,7 +72,8 @@ export default function NFTCard({ certificate, onClick }: NFTCardProps) {
           <div className="flex justify-between items-center">
             <span className="text-sm text-slate-400">Investment</span>
             <span className="font-medium text-white bg-slate-700/30 px-2 py-0.5 rounded-md">
-              {certificate.investmentAmount} AVAX
+              {/* Replace this line with the formatted amount */}
+              {formatInvestmentAmount(certificate.investmentAmount)} AVAX
             </span>
           </div>
           <div className="flex justify-between items-center">
@@ -71,10 +90,10 @@ export default function NFTCard({ certificate, onClick }: NFTCardProps) {
           </div>
         </div>
       </CardContent>
-      
+     
       <CardFooter className="border-t border-slate-700 pt-4">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="w-full border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700 hover:border-[#00E6E6] group-hover:border-[#00E6E6]/50 transition-all"
           onClick={onClick}
         >
