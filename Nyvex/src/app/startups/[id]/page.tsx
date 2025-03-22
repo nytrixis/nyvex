@@ -382,7 +382,7 @@ export default function StartupDetails() {
               <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm overflow-hidden">
               <CardHeader className="border-b border-slate-700">
                   <CardTitle className="text-white">Pitch Video</CardTitle>
-                  <CardDescription className="text-slate-400">Watch the startup's pitch presentation</CardDescription>
+                  <CardDescription className="text-slate-400">Watch the startup pitch presentation</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="aspect-video rounded-lg overflow-hidden">

@@ -41,7 +41,7 @@ const Statsection = () => {
             transition={{ duration: 0.7, delay: 0.8 }}
             className="text-lg text-slate-300 max-w-2xl mx-auto mt-6 font-light"
           >
-            Discover our platform's growth and impact through real-time metrics
+            Discover our platform growth and impact through real-time metrics
           </motion.p>
         </motion.div>
         

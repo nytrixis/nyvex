@@ -451,7 +451,7 @@ export default function Portfolio() {
                     </div>
                     <h2 className="text-2xl font-bold mb-2 text-white">No Investments Yet</h2>
                     <p className="text-slate-400 mb-6">
-                      You haven't made any investments in startups yet. Explore available startups and start building your portfolio.
+                      You have not made any investments in startups yet. Explore available startups and start building your portfolio.
                     </p>
                     <Link href="/startups">
                       <Button className="bg-[#00E6E6] text-black hover:bg-[#00d1d1] transition-colors">

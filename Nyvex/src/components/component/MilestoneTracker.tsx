@@ -274,7 +274,7 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
               <p className="text-muted-foreground">No milestones have been created yet.</p>
               {isOwner && (
                 <p className="text-sm mt-2">
-                  Create your first milestone to track your startup's progress.
+                  Create your first milestone to track your startup progress.
                 </p>
               )}
             </CardContent>
