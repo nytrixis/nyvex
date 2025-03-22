@@ -260,7 +260,7 @@ const About: React.FC = () => {
               NyveX <span className="text-[#00E6E6]">Impact</span>
             </h2>
             <p className="text-lg text-slate-300 max-w-3xl mx-auto">
-              How we're making a difference in the startup ecosystem
+              How we are making a difference in the startup ecosystem
             </p>
           </motion.div>
 
@@ -335,7 +335,7 @@ const About: React.FC = () => {
               Ready to Join the <span className="text-[#00E6E6]">NyveX</span> Revolution?
             </h2>
             <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
-              Whether you're a startup looking for funding or an investor seeking opportunities, NyveX provides the platform you need to succeed.
+              Whether you are a startup looking for funding or an investor seeking opportunities, NyveX provides the platform you need to succeed.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button className="px-8 py-3 bg-[#00E6E6] text-slate-900 font-medium rounded-lg hover:bg-[#00d1d1] transition-colors">

@@ -287,7 +287,7 @@ const RequestLoan = () => {
                   </div>
                   <h2 className="text-2xl font-bold text-white mb-4">Something Went Wrong</h2>
                   <p className="text-slate-300 mb-6">
-                    We couldn't process your loan request. This might be due to a network issue or insufficient wallet balance.
+                    We could not process your loan request. This might be due to a network issue or insufficient wallet balance.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <Button

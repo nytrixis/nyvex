@@ -272,7 +272,7 @@ export default function LoanDetailPage() {
         <div className="container mx-auto py-16 px-4 text-center">
           <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
           <h1 className="text-3xl font-bold mb-2 text-white">Loan Not Found</h1>
-          <p className="text-slate-400 mb-6">The loan you're looking for doesn't exist or has been removed.</p>
+          <p className="text-slate-400 mb-6">The loan you are looking for does not exist or has been removed.</p>
           <Button onClick={() => router.push("/loans")} className="bg-[#00E6E6] text-black hover:bg-[#00d1d1]">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Loans
           </Button>

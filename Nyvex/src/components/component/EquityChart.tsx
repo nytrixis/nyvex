@@ -163,7 +163,7 @@ const EquityChart: React.FC<EquityChartProps> = ({
                 <div className="space-y-2">
                   <h4 className="font-medium">About Equity Distribution</h4>
                   <p className="text-sm text-muted-foreground">
-                    This chart shows how equity is distributed among the startup's stakeholders.
+                    This chart shows how equity is distributed among the startups stakeholders.
                     The percentages represent ownership stakes in the company.
                   </p>
                   <p className="text-sm text-muted-foreground">
