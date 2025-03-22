@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode variables */
+    --background: 0 0% 100%; /* White background */
+    --foreground: 240 10% 3.9%; /* Dark text */
+    --card: 0 0% 100%; /* White card */
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 45%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.5rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      /* Dark mode variables */
+      --background: 0 0% 0%; /* Black background */
+      --foreground: 0 0% 98%; /* Light text */
+      --card: 240 5.9% 20%; /* Dark card */
+      --card-foreground: 0 0% 98%;
+      --popover: 240 5.9% 10%;
+      --popover-foreground: 0 0% 98%;
+      --primary: 0 0% 98%;
+      --primary-foreground: 240 5.9% 10%;
+      --secondary: 0 0% 98%;
+      --secondary-foreground: 240 5.9% 10%;
+      --muted: 240 5.9% 10%;
+      --muted-foreground: 0 0% 98%;
+      --accent: 240 5.9% 10%;
+      --accent-foreground: 0 0% 98%;
+      --destructive: 0 72% 51%;
+      --destructive-foreground: 0 0% 98%;
+      --border: 0 0% 20%;
+      --input: 0 0% 20%;
+      --ring: 0 0% 98%;
+    }
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+
+  * {
+    @apply border-border;
+  }
+}
+
+/* Hide scrollbar for Chrome, Safari, and Opera */
+.noscroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge, and Firefox */
+.noscroll {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(-50% - 0.5rem));
+  }
+}
+
+.animate-scroll {
+  animation: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
+}
