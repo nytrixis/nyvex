@@ -76,105 +76,206 @@ export default function StartupDetails() {
   const [investmentCertificates, setInvestmentCertificates] = useState<InvestmentCertificate[]>([]);
   const [error, setError] = useState<string | null>(null);
   const fetchingRef = useRef(false);
+  const initializedRef = useRef(false);
 
-  // Check if contract is ready
+  useEffect(() => {
+    // Check if contract is initialized
+    if (contract) {
+      console.log("Contract is initialized, setting contractReady to true");
+      initializedRef.current = true;
+      setContractReady(true);
+    } else {
+      console.log("Contract not initialized yet");
+    }
+  }, [contract]);
   
 
   // Fetch data function
   const fetchData = useCallback(async () => {
-    if (!contractReady || !id || fetchingRef.current) {
-      console.log("Contract not ready or no ID provided");
+    // Check if we have the necessary dependencies to fetch data
+    if (!contractReady || !id || !address) {
+      console.log("Dependencies not ready yet:", { 
+        hasContract: !!contract,  
+        hasId: !!id, 
+        hasAddress: !!address 
+      });
       return;
     }
-
+  
+    // Prevent multiple concurrent fetches
+    if (fetchingRef.current) {
+      console.log("Fetch already in progress, skipping");
+      return;
+    }
+  
+    console.log("Starting fetchData with ID:", id);
     fetchingRef.current = true;
     setLoading(true);
     setError(null);
-
-    try {
-      console.log("Fetching startup data for ID:", id);
-      
-      // Fetch all campaigns
-      const campaigns = await getCampaigns();
-      console.log("Campaigns fetched:", campaigns.length);
-      
-      // Find the campaign with the matching ID
-      const startupData = campaigns.find(c => c.pId === parseInt(id as string));
-      
-      if (!startupData) {
-        console.error("Startup not found with ID:", id);
-        setError("Startup not found");
-        setLoading(false);
-        return;
-      }
-      
-      console.log("Startup data found:", startupData.title);
-      setStartup(startupData);
-      
-      // Check if user is owner
-      const isUserOwner = startupData.owner === address;
-      setIsOwner(isUserOwner);
-      console.log("Is user owner:", isUserOwner);
-      
-      // Check if user is verifier
-      const verifierStatus = await checkIsVerifier();
-      setIsVerifier(verifierStatus);
-      console.log("Is user verifier:", verifierStatus);
-      
-      // Check if user has invested
-      if (address) {
-        const invested = await hasInvestedInStartup(parseInt(id as string));
-        setHasInvested(invested);
-        console.log("Has user invested:", invested);
+  
+    // Create a promise that will be resolved with all the data or rejected with an error
+    const fetchPromise = new Promise(async (resolve, reject) => {
+      try {
+        console.log("Fetching startup data for ID:", id);
         
-        if (invested) {
-          const amount = await getInvestmentAmount(parseInt(id as string));
-          setInvestmentAmount(amount);
-          console.log("User investment amount:", amount);
-          
-          // Get user's investment certificates for this startup
-          const tokens = await getInvestorTokens();
-          const startupTokens = tokens.filter(token => token.startupId === parseInt(id as string));
-          setInvestmentCertificates(startupTokens);
-          console.log("Investment certificates:", startupTokens.length);
+        // Fetch all campaigns
+        let campaigns = [];
+        try {
+          campaigns = await getCampaigns();
+          console.log("Campaigns fetched:", campaigns.length);
+        } catch (campaignsError) {
+          console.error("Error fetching campaigns:", campaignsError);
+          reject(new Error("Failed to fetch startups. Please try again."));
+          return;
         }
+        
+        // Find the campaign with the matching ID
+        const startupData = campaigns.find(c => c.pId === parseInt(id as string));
+        
+        if (!startupData) {
+          console.error("Startup not found with ID:", id);
+          reject(new Error("Startup not found"));
+          return;
+        }
+        
+        console.log("Startup data found:", startupData.title);
+        
+        // Check if user is owner
+        const isUserOwner = startupData.owner === address;
+        console.log("Is user owner:", isUserOwner);
+        
+        // Check if user is verifier
+        let verifierStatus = false;
+        try {
+          verifierStatus = await checkIsVerifier();
+          console.log("Is user verifier:", verifierStatus);
+        } catch (verifierError) {
+          console.error("Error checking verifier status:", verifierError);
+          // Continue even if verifier check fails
+        }
+        
+        // Check if user has invested
+        let invested = false;
+        let amount = "0";
+        let startupTokens = [];
+        
+        if (address) {
+          try {
+            invested = await hasInvestedInStartup(parseInt(id as string));
+            console.log("Has user invested:", invested);
+            
+            if (invested) {
+              try {
+                amount = await getInvestmentAmount(parseInt(id as string));
+                console.log("User investment amount:", amount);
+              } catch (amountError) {
+                console.error("Error getting investment amount:", amountError);
+                // Continue with default amount
+              }
+              
+              try {
+                // Get user's investment certificates for this startup
+                const tokens = await getInvestorTokens();
+                startupTokens = tokens.filter(token => token && token.startupId === parseInt(id as string));
+                console.log("Investment certificates:", startupTokens.length);
+              } catch (tokensError) {
+                console.error("Error getting investment tokens:", tokensError);
+                // Continue with empty tokens
+              }
+            }
+          } catch (investedError) {
+            console.error("Error checking if user has invested:", investedError);
+            // Continue with default values
+          }
+        }
+        
+        // Get documents
+        let docs = [];
+        try {
+          docs = await getStartupDocuments(parseInt(id as string));
+          console.log("Documents fetched:", docs.length);
+        } catch (docsError) {
+          console.error("Error fetching documents:", docsError);
+          // Continue with empty documents
+        }
+        
+        // Resolve with all the data
+        resolve({
+          startup: startupData,
+          isOwner: isUserOwner,
+          isVerifier: verifierStatus,
+          hasInvested: invested,
+          investmentAmount: amount,
+          investmentCertificates: startupTokens,
+          documents: docs
+        });
+      } catch (error) {
+        console.error("Unexpected error in fetch promise:", error);
+        reject(error);
       }
+    });
+    
+    // Set a timeout to prevent infinite loading
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Fetch timeout - please check your connection and try again")), 30000);
+    });
+    
+    try {
+      // Race the fetch against the timeout
+      const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
       
-      // Get documents
-      const docs = await getStartupDocuments(parseInt(id as string));
-      setDocuments(docs);
-      console.log("Documents fetched:", docs.length);
+      // Update all states with the fetched data
+      setStartup(result.startup);
+      setIsOwner(result.isOwner);
+      setIsVerifier(result.isVerifier);
+      setHasInvested(result.hasInvested);
+      setInvestmentAmount(result.investmentAmount);
+      setInvestmentCertificates(result.investmentCertificates);
+      setDocuments(result.documents);
       
+      console.log("All data fetched successfully");
     } catch (error) {
-      console.error("Error fetching startup details:", error);
-      setError("Failed to load startup details. Please try again later.");
+      console.error("Error in fetchData:", error);
+      setError(error instanceof Error ? error.message : "Failed to load startup details. Please try again later.");
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [id, getCampaigns, address, checkIsVerifier, hasInvestedInStartup, getInvestmentAmount, getStartupDocuments, getInvestorTokens, contractReady]);
+  
 
   // Fetch data when contract is ready and ID is available
   useEffect(() => {
-    if (contractReady && id && !startup) {
-      console.log("Contract ready and ID available, fetching data...");
-      fetchData();
-    }
-  }, [contractReady, id, fetchData, startup]);
-
-  // Add a timeout to prevent infinite loading
-  useEffect(() => {
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.log("Loading timeout reached. Setting loading to false.");
-        setLoading(false);
-        if (!error && !startup) {
-          setError("Loading timed out. Please refresh the page to try again.");
+    const shouldFetch = id && contract && address && !fetchingRef.current;
+    
+    if (shouldFetch) {
+      console.log("Dependencies ready, fetching data...");
+      // Use a small timeout to ensure state updates have propagated
+      const timer = setTimeout(() => {
+        fetchData();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    } else {
+      console.log("Waiting for dependencies:", { 
+        hasId: !!id, 
+        hasContract: !!contract, 
+        hasAddress: !!address,
+        isFetching: fetchingRef.current
+      });
+      
+      // If we've been waiting too long, set an error
+      const timeout = setTimeout(() => {
+        if (loading && !startup) {
+          console.log("Loading timeout reached");
+          setLoading(false);
+          setError("Connection timeout. Please check your wallet connection and refresh the page.");
         }
-      }
-    }, 15000); // 15 seconds timeout
-
-    return () => clearTimeout(loadingTimeout);
-  }, [loading, error, startup]);
+      }, 20000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [id, contract, address, fetchData, loading, startup]);
 
   // Handle funding a startup
   const handleFundStartup = async () => {
