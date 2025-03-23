@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react"; // Added useRef
+import React, { useState, useEffect, useRef } from "react";
 import { useStateContext } from "@/context";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +15,11 @@ interface MilestoneTrackerProps {
   startupId: number;
   isOwner: boolean;
   isVerifier: boolean;
+  startupAmountCollected?: number;
 }
 
-const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner, isVerifier }) => {
-  const { getStartupMilestones, createMilestone, completeMilestone, isLoading: contextLoading } = useStateContext();
+const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner, isVerifier, startupAmountCollected = 0 }) => {
+  const { getStartupMilestones, createMilestone, completeMilestone } = useStateContext();
   const [milestones, setMilestones] = useState<any[]>([]);
   const [newMilestone, setNewMilestone] = useState({
     title: "",
@@ -29,12 +30,12 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<number | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
-  // Add local loading states to manage UI independently from context
+  // Local loading states
   const [isCreatingMilestone, setIsCreatingMilestone] = useState(false);
   const [isCompletingMilestone, setIsCompletingMilestone] = useState(false);
   const [isFetchingMilestones, setIsFetchingMilestones] = useState(false);
   
-  // Add a mounted ref to prevent state updates after unmount
+  // Mounted ref to prevent state updates after unmount
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -46,6 +47,8 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
 
   useEffect(() => {
     const fetchMilestones = async () => {
+      if (!startupId) return;
+      
       try {
         setIsFetchingMilestones(true);
         const data = await getStartupMilestones(startupId);
@@ -85,6 +88,18 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
         return;
       }
       
+      // Calculate total funds already allocated to milestones
+      const totalAllocatedFunds = milestones.reduce((sum, milestone) => {
+        return sum + parseFloat(milestone.fundAmount.toString());
+      }, 0);
+      
+      // Check if there are enough funds available
+      if (totalAllocatedFunds + fundAmount > startupAmountCollected) {
+        alert(`Not enough funds available. You can allocate up to ${(startupAmountCollected - totalAllocatedFunds).toFixed(4)} AVAX for this milestone.`);
+        setIsCreatingMilestone(false);
+        return;
+      }
+      
       console.log("Creating milestone:", newMilestone);
       
       await createMilestone(
@@ -102,16 +117,21 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
         // Show success message
         alert("Milestone created successfully!");
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to create milestone:", error);
-      alert("Failed to create milestone. Please try again.");
+      
+      // Provide a more specific error message
+      if (error instanceof Error && error.toString().includes("Not enough funds available")) {
+        alert("Not enough funds available for this milestone. The total of all milestone funds cannot exceed the amount collected for the startup.");
+      } else {
+        alert("Failed to create milestone. Please try again.");
+      }
     } finally {
       if (isMounted.current) {
         setIsCreatingMilestone(false);
       }
     }
   };
-
   const handleCompleteMilestone = async (milestoneId: number) => {
     if (!proofFile || isCompletingMilestone) return;
     
@@ -159,6 +179,12 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
     show: { y: 0, opacity: 1 }
   };
 
+  // Calculate available funds for milestones
+  const totalAllocatedFunds = milestones.reduce((sum, milestone) => {
+    return sum + parseFloat(milestone.fundAmount.toString());
+  }, 0);
+  const availableFunds = Math.max(0, startupAmountCollected - totalAllocatedFunds);
+
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="mb-6">
@@ -168,12 +194,25 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
 
       {isOwner && (
         <Card className="mb-8 border-[#00d8ff] border">
-          <CardHeader>
+          {/* <CardHeader>
             <CardTitle>Create New Milestone</CardTitle>
             <CardDescription>Define the next achievement for your startup</CardDescription>
-          </CardHeader>
+          </CardHeader> */}
           <CardContent>
             <div className="space-y-4">
+              {/* Display available funds */}
+              <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-md mb-4">
+                <p className="text-sm font-medium">
+                  <span className="text-muted-foreground">Available Funds: </span>
+                  <span className="text-[#00d8ff] font-bold">
+                    {availableFunds.toFixed(4)} AVAX
+                  </span>
+                  <span className="text-muted-foreground"> of </span>
+                  <span className="font-bold">{startupAmountCollected.toFixed(4)} AVAX</span>
+                  <span className="text-muted-foreground"> collected</span>
+                </p>
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium mb-1">Title</label>
                 <Input 
@@ -181,6 +220,7 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
                   onChange={(e) => setNewMilestone({...newMilestone, title: e.target.value})}
                   placeholder="E.g., MVP Launch"
                   disabled={isCreatingMilestone}
+                  className="text-[#00d8ff] placeholder:text-slate-400"
                 />
               </div>
               <div>
@@ -191,6 +231,7 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
                   placeholder="Describe what this milestone entails"
                   rows={3}
                   disabled={isCreatingMilestone}
+                  className="text-[#00d8ff] placeholder:text-slate-400"
                 />
               </div>
               <div>
@@ -201,6 +242,7 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
                   onChange={(e) => setNewMilestone({...newMilestone, fundAmount: e.target.value})}
                   placeholder="Amount to release upon completion"
                   disabled={isCreatingMilestone}
+                  className="text-[#00d8ff] placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -219,7 +261,7 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
 
       {isFetchingMilestones && milestones.length === 0 ? (
         <div className="flex justify-center items-center py-12">
-          <ClipLoader size={30} color="#00d8ff" />
+          {/* <ClipLoader size={30} color="#00d8ff" /> */}
         </div>
       ) : (
         <motion.div 
@@ -263,7 +305,9 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
                         </a>
                         {milestone.completionDate && (
                           <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                            Completed on: {milestone.completionDate.toLocaleDateString()}
+                            Completed on: {milestone.completionDate instanceof Date ? 
+                              milestone.completionDate.toLocaleDateString() : 
+                              "Unknown date"}
                           </p>
                         )}
                       </div>
@@ -305,7 +349,7 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
                               >
                                 {proofFile ? (
                                   <>
-                                    <CheckCircle className="h-8 w-8 text-green-500 mb-2" />
+                                                                        <CheckCircle className="h-8 w-8 text-green-500 mb-2" />
                                     <p className="text-sm font-medium">{proofFile.name}</p>
                                     <p className="text-xs text-muted-foreground mt-1">
                                       {(proofFile.size / 1024 / 1024).toFixed(2)} MB
@@ -323,7 +367,7 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
                               </label>
                             </div>
                             
-                            {!proofFile && (
+                            {!proofFile && !isCompletingMilestone && (
                               <div className="flex items-center text-amber-500 text-sm">
                                 <AlertCircle className="h-4 w-4 mr-2" />
                                 <span>Proof documentation is required</span>
@@ -337,7 +381,11 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
                               disabled={!proofFile || isCompletingMilestone}
                               className="bg-[#00d8ff] text-black hover:bg-[#00b8d4]"
                             >
-                              {isCompletingMilestone ? <ClipLoader size={20} color="#000" /> : "Submit Verification"}
+                              {isCompletingMilestone ? (
+                                <ClipLoader size={20} color="#000" />
+                              ) : (
+                                "Submit Verification"
+                              )}
                             </Button>
                           </DialogFooter>
                         </DialogContent>
@@ -345,7 +393,7 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
                     </CardFooter>
                   )}
                 </Card>
-                </motion.div>
+              </motion.div>
             ))
           ) : (
             <Card className="border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
@@ -366,4 +414,3 @@ const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({ startupId, isOwner,
 };
 
 export default MilestoneTracker;
-
