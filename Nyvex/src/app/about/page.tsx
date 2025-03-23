@@ -119,7 +119,7 @@ const About: React.FC = () => {
               </div>
               <h3 className="text-2xl font-bold mb-4 text-white">Empowering Startups</h3>
               <p className="text-slate-300">
-                NyveX provides the tools needed for growth and innovation, reducing barriers to funding and enabling startups to focus on what they do best.
+                Nyvex provides the tools needed for growth and innovation, reducing barriers to funding and enabling startups to focus on what they do best.
               </p>
             </motion.div>
 

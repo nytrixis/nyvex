@@ -20,7 +20,7 @@ const Footer: React.FC = () => {
           <div className="md:col-span-4 space-y-6">
             <div className="flex items-center">
               <h2 className="text-3xl font-bold text-slate-900 dark:text-white">
-                NYVE
+                NYVEX
               </h2>
               <Image
                 src="/images/cross-chain.png"
@@ -144,7 +144,7 @@ const Footer: React.FC = () => {
         {/* Bottom section with copyright */}
         <div className="mt-16 pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center">
           <p className="text-slate-500 dark:text-slate-400 text-sm">
-            &copy; {new Date().getFullYear()} NYVEX. All rights reserved.
+            &copy; {new Date().getFullYear()} NyveX. All rights reserved.
           </p>
           <div className="flex items-center mt-4 md:mt-0">
             <span className="text-xs px-3 py-1 rounded-full bg-[#00E6E6]/10 text-[#00E6E6] border border-[#00E6E6]/20">
