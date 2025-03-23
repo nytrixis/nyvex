@@ -194,57 +194,131 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   async function getCampaigns() {
-    try {
-      const campaigns = await readContract({
-        contract,
-        method:
-          "function getStartups() view returns ((address owner, string title, string description, (string name, uint256 percentage)[] equityHolders, string pitchVideo, string image, uint256 target, uint256 deadline, uint256 amountCollected, uint256 amountReleased, (address funderAddress, uint256 amount, uint256 tokenId)[] funders, (string ipfsHash, string documentType, uint256 timestamp)[] documentHashes, (string title, string description, uint256 fundAmount, bool isCompleted, string ipfsHash, uint256 completionTimestamp)[] milestones, bool isVerified)[])",
-        params: [],
-      });
+  try {
+    const campaigns = await readContract({
+      contract,
+      method:
+        "function getStartups() view returns ((address owner, string title, string description, (string name, uint256 percentage)[] equityHolders, string pitchVideo, string image, uint256 target, uint256 deadline, uint256 amountCollected, uint256 amountReleased, (address funderAddress, uint256 amount, uint256 tokenId)[] funders, (string ipfsHash, string documentType, uint256 timestamp)[] documentHashes, (string title, string description, uint256 fundAmount, bool isCompleted, string ipfsHash, uint256 completionTimestamp)[] milestones, bool isVerified)[])",
+      params: [],
+    });
 
-      // Map the returned campaigns to your desired format
-      return campaigns.map((campaign: any, i: number) => ({
-        owner: campaign.owner,
-        title: campaign.title,
-        description: campaign.description,
-        target: formatEther(campaign.target.toString()), // Convert to Ether
-        deadline: new Date(Number(campaign.deadline)), // Convert to Date
-        amountCollected: formatEther(campaign.amountCollected.toString()), // Convert to Ether
-        amountReleased: formatEther(campaign.amountReleased.toString()), // Convert to Ether
-        image: campaign.image,
-        video: campaign.pitchVideo,
-        isVerified: campaign.isVerified,
-        equityHolders: campaign.equityHolders.map((holder: any) => ({
-          name: holder.name,
-          percentage: holder.percentage.toString(),
-        })),
-        funders: campaign.funders.map((funder: any) => ({
-          funderAddress: funder.funderAddress,
-          amount: formatEther(funder.amount.toString()), // Convert to Ether
-          tokenId: funder.tokenId.toString(),
-        })),
-        documents: campaign.documentHashes.map((doc: any) => ({
-          ipfsHash: doc.ipfsHash,
-          documentType: doc.documentType,
-          timestamp: new Date(Number(doc.timestamp)),
-        })),
-        milestones: campaign.milestones.map((milestone: any) => ({
-          title: milestone.title,
-          description: milestone.description,
-          fundAmount: formatEther(milestone.fundAmount.toString()),
-          isCompleted: milestone.isCompleted,
-          proofIpfsHash: milestone.ipfsHash,
-          completionTimestamp: milestone.completionTimestamp.toNumber() > 0
-            ? new Date(milestone.completionTimestamp.toNumber() * 1000)
-            : undefined,
-        })),
-        pId: i,
-      }));
-    } catch (error) {
-      console.error("Error fetching campaigns:", error);
-      return [];
-    }
+    // Log the raw campaigns data to help with debugging
+    console.log("Raw campaigns data:", campaigns.length);
+
+    // Map the returned campaigns to your desired format
+    const parsedCampaigns = campaigns.map((campaign: any, i: number) => {
+      try {
+
+        const deadlineTimestamp = Number(campaign.deadline);
+        const deadlineDate = new Date(deadlineTimestamp * 1000); // Multiply by 1000 to convert seconds to milliseconds
+        
+        console.log(`Campaign ${i} deadline: ${deadlineTimestamp} seconds -> ${deadlineDate.toISOString()}`);
+        // Process each campaign with error handling
+        const parsedCampaign = {
+          owner: campaign.owner,
+          title: campaign.title,
+          description: campaign.description,
+          target: formatEther(campaign.target.toString()), // Convert to Ether
+          deadline:deadlineDate, 
+          amountCollected: formatEther(campaign.amountCollected.toString()), // Convert to Ether
+          amountReleased: formatEther(campaign.amountReleased.toString()), // Convert to Ether
+          image: campaign.image,
+          video: campaign.pitchVideo,
+          pId: i, // Add pId explicitly as the index
+          isVerified: campaign.isVerified,
+          equityHolders: campaign.equityHolders.map((holder: any) => ({
+            name: holder.name,
+            percentage: holder.percentage.toString(),
+          })),
+          funders: campaign.funders.map((funder: any) => ({
+            funderAddress: funder.funderAddress,
+            amount: formatEther(funder.amount.toString()), // Convert to Ether
+            tokenId: funder.tokenId.toString(),
+          })),
+          documents: campaign.documentHashes.map((doc: any) => ({
+            ipfsHash: doc.ipfsHash,
+            documentType: doc.documentType,
+            timestamp: new Date(Number(doc.timestamp) * 1000), // Convert to Date (multiply by 1000 for milliseconds)
+            url: `https://ipfs.io/ipfs/${doc.ipfsHash}`, // Add URL for convenience
+          })),
+          milestones: []
+        };
+
+        // Process milestones with additional error handling
+        parsedCampaign.milestones = campaign.milestones.map((milestone: any) => {
+          try {
+            // Safely handle the completionTimestamp
+            let completionDate = null;
+            if (milestone.completionTimestamp) {
+              const timestamp = Number(milestone.completionTimestamp.toString());
+              if (timestamp > 0) {
+                completionDate = new Date(timestamp * 1000); // Convert to milliseconds
+              }
+            }
+
+            return {
+              id: milestone.id || i, // Use milestone.id if available, otherwise use campaign index
+              title: milestone.title || "Untitled Milestone",
+              description: milestone.description || "",
+              fundAmount: formatEther(milestone.fundAmount.toString()),
+              isCompleted: !!milestone.isCompleted, // Ensure boolean
+              proofIpfsHash: milestone.ipfsHash || "",
+              completionDate: completionDate,
+              completionTimestamp: milestone.completionTimestamp ? 
+                Number(milestone.completionTimestamp.toString()) : 0
+            };
+          } catch (milestoneError) {
+            console.error("Error parsing milestone:", milestoneError, milestone);
+            // Return a default milestone object if parsing fails
+            return {
+              id: i,
+              title: milestone.title || "Error in Milestone",
+              description: milestone.description || "Could not load milestone details",
+              fundAmount: "0",
+              isCompleted: false,
+              proofIpfsHash: "",
+              completionDate: null,
+              completionTimestamp: 0
+            };
+          }
+        });
+
+        return parsedCampaign;
+      } catch (campaignError) {
+        console.error("Error parsing campaign:", campaignError, campaign);
+        // Return a minimal campaign object if parsing fails
+        return {
+          owner: campaign.owner || "Unknown",
+          title: campaign.title || "Error Loading Campaign",
+          description: campaign.description || "Could not load campaign details",
+          target: "0",
+          deadline: new Date(),
+          amountCollected: "0",
+          amountReleased: "0",
+          image: campaign.image || "",
+          video: campaign.pitchVideo || "",
+          pId: i,
+          isVerified: false,
+          equityHolders: [],
+          funders: [],
+          documents: [],
+          milestones: []
+        };
+      }
+    });
+
+    // Log the parsed campaigns to help with debugging
+    console.log("Parsed campaigns:", parsedCampaigns.map(c => ({ id: c.pId, title: c.title })));
+    
+    return parsedCampaigns;
+  } catch (error) {
+    console.error("Error fetching campaigns:", error);
+    return [];
+  } finally {
+    setIsLoading(false);
   }
+}
+
 
   async function getLoanRequests() {
     try {

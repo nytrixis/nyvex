@@ -403,11 +403,41 @@ export default function StartupDetails() {
   }
 
   // Format deadline date
-  const deadlineDate = new Date(startup.deadline);
-  const currentDate = new Date();
-  const timeDifference = deadlineDate.getTime() - currentDate.getTime();
-  const daysRemaining = Math.ceil(timeDifference / (1000 * 3600 * 24));
-  const deadlineOver = daysRemaining <= 0;
+// Format deadline date
+let deadlineDate;
+const currentDate = new Date();
+
+// Check if the deadline is a Date object or a timestamp
+if (startup.deadline instanceof Date) {
+  deadlineDate = startup.deadline;
+} else {
+  // Try to parse it as a timestamp (in seconds)
+  const timestamp = typeof startup.deadline === 'number' 
+    ? startup.deadline 
+    : parseInt(startup.deadline);
+  
+  // Check if the timestamp is too large (likely in milliseconds already)
+  if (timestamp > 100000000000) { // More than year ~5138 (100B seconds since epoch)
+    deadlineDate = new Date(timestamp); // Already in milliseconds
+  } else {
+    deadlineDate = new Date(timestamp * 1000); // Convert seconds to milliseconds
+  }
+}
+
+// Validate the date - if it's too far in the future, it's likely incorrect
+if (isNaN(deadlineDate.getTime()) || deadlineDate.getFullYear() > 2100) {
+  console.error("Invalid or far-future deadline date:", startup.deadline);
+  // Fallback to a reasonable date (e.g., 30 days from now)
+  deadlineDate = new Date(currentDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+}
+
+console.log("Original deadline value:", startup.deadline);
+console.log("Parsed deadline date:", deadlineDate.toISOString());
+
+const timeDifference = deadlineDate.getTime() - currentDate.getTime();
+const daysRemaining = Math.max(0, Math.ceil(timeDifference / (1000 * 3600 * 24)));
+const deadlineOver = daysRemaining <= 0;
+
 
   // Calculate funding progress
   const fundingProgress = Math.min(
