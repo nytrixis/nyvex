@@ -77,6 +77,7 @@ export default function StartupDetails() {
   const [error, setError] = useState<string | null>(null);
   const fetchingRef = useRef(false);
   const initializedRef = useRef(false);
+  const dataLoadedRef = useRef(false);
 
   useEffect(() => {
     // Check if contract is initialized
@@ -92,6 +93,11 @@ export default function StartupDetails() {
 
   // Fetch data function
   const fetchData = useCallback(async () => {
+
+    if (dataLoadedRef.current && startup) {
+      console.log("Data already loaded, skipping fetch");
+      return;
+    }
     // Check if we have the necessary dependencies to fetch data
     if (!contractReady || !id || !address) {
       console.log("Dependencies not ready yet:", { 
@@ -232,6 +238,8 @@ export default function StartupDetails() {
       setInvestmentAmount(result.investmentAmount);
       setInvestmentCertificates(result.investmentCertificates);
       setDocuments(result.documents);
+
+      dataLoadedRef.current = true;
       
       console.log("All data fetched successfully");
     } catch (error) {
@@ -246,6 +254,12 @@ export default function StartupDetails() {
 
   // Fetch data when contract is ready and ID is available
   useEffect(() => {
+    if (dataLoadedRef.current && startup) {
+      console.log("Data already loaded, not fetching again");
+      setLoading(false); // Ensure loading is false
+      return;
+    }
+  
     const shouldFetch = id && contract && address && !fetchingRef.current;
     
     if (shouldFetch) {
@@ -357,7 +371,7 @@ export default function StartupDetails() {
   };
 
   // Show loading spinner while data is loading
-  if (loading || !contractReady) {
+  if ((loading || !contractReady) && !dataLoadedRef.current) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 to-[#1a2942] flex justify-center items-center">
         <div className="flex flex-col items-center">
