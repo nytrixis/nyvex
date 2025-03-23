@@ -28,9 +28,13 @@ export async function uploadToIPFS(file: File): Promise<string> {
       formData,
       {
         headers: {
-          'Content-Type': `multipart/form-data; boundary=${formData.getBoundary()}`,
+          'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${JWT}`
-        }
+        },
+        transformRequest: [(data, headers) => {
+          // Let axios handle the FormData
+          return data;
+        }]
       }
     );
     
